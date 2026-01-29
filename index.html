@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VSTEP AI Grader: Say Hi Edition</title>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        /* --- 1. GIAO DIỆN CHUNG --- */
+        :root {
+            --neon-orange: #ff9f43;
+            --neon-blue: #0abde3;
+            --neon-green: #1dd1a1;
+            --dark-bg: #222f3e;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Montserrat', sans-serif; }
+        body { height: 100vh; background: #000; overflow: hidden; }
+
+        /* --- 2. MÀN HÌNH CHÀO --- */
+        #welcome-screen {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: linear-gradient(135deg, #1e272e, #000);
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            z-index: 9999; transition: opacity 0.8s ease;
+        }
+        .welcome-title {
+            font-size: 3.5rem; font-weight: 900; text-transform: uppercase;
+            background: linear-gradient(45deg, var(--neon-orange), var(--neon-blue));
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            margin-bottom: 20px; text-shadow: 0 0 20px rgba(255, 159, 67, 0.5);
+        }
+        .btn-start {
+            padding: 15px 40px; font-size: 1.2rem; font-weight: 800; color: #fff;
+            background: var(--neon-orange); border: none; border-radius: 50px; cursor: pointer;
+            box-shadow: 0 0 20px rgba(255, 159, 67, 0.6); animation: pulse 2s infinite;
+        }
+        @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(255, 159, 67, 0.7); } 70% { box-shadow: 0 0 0 20px rgba(0,0,0,0); } 100% { box-shadow: 0 0 0 0 rgba(0,0,0,0); } }
+
+        /* --- 3. GIAO DIỆN CHÍNH --- */
+        #app-interface {
+            display: none; width: 100%; height: 100%;
+            background: url('https://source.unsplash.com/1920x1080/?concert,stage,neon') no-repeat center center/cover;
+            justify-content: center; align-items: center; opacity: 0; transition: opacity 1s ease;
+        }
+        .container {
+            width: 95%; max-width: 1400px; height: 90vh;
+            background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(15px);
+            border-radius: 20px; display: grid; grid-template-columns: 260px 1fr 320px;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.5); overflow: hidden;
+        }
+
+        /* SIDEBAR */
+        .sidebar { padding: 20px; background: rgba(240, 240, 240, 0.8); overflow-y: auto; }
+        .logo-text { font-size: 1.2rem; font-weight: 800; color: var(--dark-bg); margin-bottom: 20px; text-align: center; border-bottom: 3px solid var(--neon-orange); padding-bottom: 10px; }
+        .menu-group { font-size: 0.8rem; font-weight: 700; color: #888; margin: 15px 0 5px 5px; text-transform: uppercase; }
+        .menu-btn { display: block; width: 100%; padding: 10px 15px; margin-bottom: 5px; text-align: left; border: none; background: transparent; border-radius: 10px; cursor: pointer; font-weight: 600; color: #333; transition: 0.2s; }
+        .menu-btn:hover, .menu-btn.active { background: linear-gradient(45deg, var(--neon-orange), var(--neon-blue)); color: white; box-shadow: 0 4px 10px rgba(0,0,0,0.2); }
+
+        /* MAIN CONTENT */
+        .main-content { padding: 30px; overflow-y: auto; background: white; }
+        .lesson-title { font-size: 1.8rem; font-weight: 800; margin-bottom: 20px; color: var(--dark-bg); }
+        
+        /* CARD CÂU HỎI */
+        .qa-card {
+            background: #fdfdfd; border: 1px solid #eee; border-radius: 16px;
+            padding: 25px; margin-bottom: 30px; box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+            border-left: 5px solid var(--neon-blue);
+        }
+        .question { font-size: 1.1rem; font-weight: 700; margin-bottom: 15px; color: #2d3436; }
+
+        /* KHUNG NHẬP LIỆU CỦA NGƯỜI DÙNG */
+        .user-input-area { margin-bottom: 15px; }
+        textarea {
+            width: 100%; height: 100px; padding: 15px; border-radius: 10px;
+            border: 2px solid #dfe6e9; font-size: 1rem; color: #333; outline: none;
+            transition: 0.3s; resize: vertical; font-family: 'Montserrat', sans-serif;
+        }
+        textarea:focus { border-color: var(--neon-blue); background: #f0fbff; }
+        
+        .btn-grade {
+            background: var(--neon-blue); color: white; padding: 10px 25px;
+            border: none; border-radius: 30px; font-weight: 700; cursor: pointer;
+            margin-right: 10px; transition: 0.2s;
+        }
+        .btn-grade:hover { transform: translateY(-2px); box-shadow: 0 4px 10px rgba(10, 189, 227, 0.4); }
+        
+        .btn-toggle {
+            background: #eee; color: #555; padding: 10px 25px;
+            border: none; border-radius: 30px; font-weight: 600; cursor: pointer;
+        }
+
+        /* KHUNG KẾT QUẢ CHẤM ĐIỂM */
+        .grading-result {
+            margin-top: 15px; padding: 15px; border-radius: 10px; background: #fff3cd;
+            display: none; animation: fadeIn 0.5s; border: 1px dashed #ffa502;
+        }
+        .score-display { font-size: 1.2rem; font-weight: 800; color: #e67e22; margin-bottom: 5px; }
+        .feedback-text { font-size: 0.95rem; color: #555; line-height: 1.5; }
+        .missing-keywords { color: #d63031; font-weight: 600; }
+
+        /* ĐÁP ÁN MẪU */
+        .answer {
+            margin-top: 20px; padding: 20px; background: #f8f9fa; border-radius: 12px;
+            display: none; line-height: 1.8; color: #333; white-space: pre-wrap;
+            border: 1px dashed #ccc;
+        }
+        .answer.show { display: block; animation: slideDown 0.4s; }
+        @keyframes slideDown { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* WIDGETS */
+        .widgets { padding: 20px; background: rgba(240, 240, 240, 0.8); display: flex; flex-direction: column; gap: 20px; }
+        .timer-box { background: white; padding: 20px; border-radius: 16px; text-align: center; box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
+        .time-text { font-size: 3rem; font-weight: 800; color: var(--neon-orange); }
+        .spotify-box { flex-grow: 1; border-radius: 16px; overflow: hidden; background: black; }
+
+        @media (max-width: 900px) {
+            .container { grid-template-columns: 1fr; height: auto; min-height: 100vh; }
+            .sidebar, .widgets { display: none; }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="welcome-screen">
+        <div class="welcome-title">SAY HI & STUDY</div>
+        <p style="color: #ccc; margin-bottom: 30px;">Luyện thi VSTEP - Tự động chấm điểm từ khóa</p>
+        <button class="btn-start" onclick="enterApp()">VÀO HỌC NGAY 🚀</button>
+    </div>
+
+    <div id="app-interface">
+        <div class="container">
+            <div class="sidebar">
+                <div class="logo-text">DANH SÁCH BÀI</div>
+                
+                <div class="menu-group">Speaking Part 1</div>
+                <button class="menu-btn active" onclick="loadLesson('sp1_hobbies', this)">Hobbies & Interests</button>
+                <button class="menu-btn" onclick="loadLesson('sp1_family', this)">Family & Cooking</button>
+                <button class="menu-btn" onclick="loadLesson('sp1_transport', this)">Transport</button>
+
+                <div class="menu-group">Speaking Part 2</div>
+                <button class="menu-btn" onclick="loadLesson('sp2_relax', this)">Relaxing Weekend</button>
+                <button class="menu-btn" onclick="loadLesson('sp2_gift', this)">Buying a Gift</button>
+
+                <div class="menu-group">Speaking Part 3</div>
+                <button class="menu-btn" onclick="loadLesson('sp3_zoos', this)">Animals in Zoos</button>
+                <button class="menu-btn" onclick="loadLesson('sp3_books', this)">Reading Habits</button>
+
+                <div class="menu-group">Writing</div>
+                <button class="menu-btn" onclick="loadLesson('wt1_letter', this)">Letter to Aldora</button>
+                <button class="menu-btn" onclick="loadLesson('wt1_complaint', this)">Complaint Letter</button>
+            </div>
+
+            <div class="main-content" id="lesson-content">
+                </div>
+
+            <div class="widgets">
+                <div class="timer-box">
+                    <h4 style="color: #555;">TIMER</h4>
+                    <div class="time-text" id="timer">25:00</div>
+                    <button style="padding:5px 10px; cursor:pointer;" onclick="startTimer()">Start</button>
+                    <button style="padding:5px 10px; cursor:pointer;" onclick="resetTimer()">Reset</button>
+                </div>
+                <div class="spotify-box">
+                    <iframe style="border-radius:12px" src="https://open.spotify.com/embed/playlist/37i9dQZF1DX4g8Gs5nUhpp?utm_source=generator" width="100%" height="100%" frameBorder="0" allowfullscreen="" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy"></iframe>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- 1. DỮ LIỆU BÀI HỌC (FULL SCRIPT) ---
+        const lessons = {
+            'sp1_hobbies': {
+                title: "Speaking Part 1: Hobbies",
+                qa: [
+                    { q: "What do you often do in your free time?", a: "I often read books in my free time. That's because it's fun and interesting. It makes me feel good and gives me energy. So, It helps to reduce my stress. Also, it's a good way to kill time." },
+                    { q: "Do you play sports?", a: "Yes, I do. I often play badminton. That's because it's fun and interesting. It makes me feel good and gives me energy. So, It helps to reduce my stress. Also, it's a good way to kill time. Actually, I usually play badminton with my best friend, Phuong." }
+                ]
+            },
+            'sp1_family': {
+                title: "Speaking Part 1: Family",
+                qa: [
+                    { q: "Who never cooks in your family?", a: "Actually, I never cook in the family. This is because I'm too busy with my work and I hardly have time to do other things. So, my mom often cooks for me and my family." },
+                    { q: "Talk about your family.", a: "There are 4 people in my family: my parents, me and my sister. My parents are farmers. My sister and I are university students. I like talking with my mom. She is very patient to me and she often gives me helpful advice." }
+                ]
+            },
+            'sp1_transport': {
+                title: "Speaking Part 1: Transport",
+                qa: [
+                    { q: "How do you get to school?", a: "I usually get to and from college by motorbike. Because my house is near my school, it takes me only 10 minutes to go to school by motorbike. Also, my area doesn't have public transport." }
+                ]
+            },
+            'sp2_relax': {
+                title: "Part 2: Relaxing Weekend",
+                qa: [
+                    { q: "Situation: Choose between watching TV, going on a trip, or hanging out in a café.", a: "I believe that hanging out with friends in a café is the best choice. First, it is good and suitable. So, it's a common choice. In addition, it's fun and interesting. It makes me feel good and gives me energy. So, It helps to reduce my stress. Finally, it saves money. A cup of coffee is cheap." }
+                ]
+            },
+            'sp2_gift': {
+                title: "Part 2: Buying a Gift",
+                qa: [
+                    { q: "Situation: Birthday present (Clothing, Book, Movie tickets).", a: "I believe that a book is the best choice. First, it is good and suitable. In addition, My friend loves reading books. It's fun and interesting. It helps to reduce stress. Finally, It saves money. A book is cheap. It costs only 50 thousand VND." }
+                ]
+            },
+            'sp3_zoos': {
+                title: "Part 3: Animals in Zoos",
+                qa: [
+                    { q: "Disadvantages of keeping animals in zoos?", a: "Firstly, animals can lack survival skills. People feed the animals so they cannot hunt. Secondly, animals can lack living space. Big animals need open space. Finally, animals can lose freedom in zoos. They are always kept in cages." },
+                    { q: "Benefits of zoos?", a: "Firstly, we can keep them safe. We can protect the animals that are in danger. Secondly, we can make money when keeping animals in zoos. Finally, we can teach children knowledge about animals." }
+                ]
+            },
+            'wt1_letter': {
+                title: "Writing Task 1: Letter to Aldora",
+                qa: [
+                    { q: "Write a letter to Aldora about your visit.", a: "Dear Aldora, Thanks for your email. Firstly, my flight arrives at 9 in the morning on the 25th of October. I'm very happy that you can pick me up. I will stay there for 5 days. I want to visit Big Ben Tower and try some traditional food. I look forward to seeing you soon." }
+                ]
+            },
+             'wt1_complaint': {
+                title: "Writing Task 1: Complaint Letter",
+                qa: [
+                    { q: "Complaint to Sports Center manager.", a: "Dear Mr. Smith, I am writing to give my opinions. First of all, I chose your center because it is near my house. However, I am unhappy with the changing room. It takes too much time to wait for it. Finally, I would like to have new yoga equipment." }
+                ]
+            }
+        };
+
+        // --- 2. HÀM CHUYỂN MÀN HÌNH ---
+        function enterApp() {
+            document.getElementById('welcome-screen').style.opacity = '0';
+            setTimeout(() => {
+                document.getElementById('welcome-screen').style.display = 'none';
+                document.getElementById('app-interface').style.display = 'flex';
+                document.getElementById('app-interface').style.opacity = '1';
+                loadLesson('sp1_hobbies');
+            }, 800);
+        }
+
+        // --- 3. HÀM TẢI BÀI HỌC ---
+        function loadLesson(key, btn) {
+            if(btn) {
+                document.querySelectorAll('.menu-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+            }
+
+            const data = lessons[key];
+            const contentDiv = document.getElementById('lesson-content');
+            
+            let html = `<div class="lesson-title">${data.title}</div>`;
+            
+            data.qa.forEach((item, index) => {
+                html += `
+                    <div class="qa-card">
+                        <div class="question">Câu ${index + 1}: ${item.q}</div>
+                        
+                        <div class="user-input-area">
+                            <textarea id="input-${index}" placeholder="Nhập câu trả lời của bạn vào đây để máy chấm điểm..."></textarea>
+                        </div>
+                        
+                        <div style="margin-bottom: 10px;">
+                            <button class="btn-grade" onclick="gradeAnswer(${index}, \`${escapeHtml(item.a)}\`)">
+                                <i class="fas fa-check-circle"></i> Chấm bài ngay
+                            </button>
+                            <button class="btn-toggle" onclick="toggleAnswer(this)">
+                                <i class="fas fa-eye"></i> Xem đáp án mẫu
+                            </button>
+                        </div>
+
+                        <div id="result-${index}" class="grading-result"></div>
+
+                        <div class="answer">${item.a}</div>
+                    </div>
+                `;
+            });
+            contentDiv.innerHTML = html;
+        }
+
+        function escapeHtml(text) {
+            return text.replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+        }
+
+        function toggleAnswer(btn) {
+            const answerDiv = btn.parentElement.nextElementSibling.nextElementSibling; // Nhảy qua div result
+            if (answerDiv.classList.contains('show')) {
+                answerDiv.classList.remove('show');
+                btn.innerHTML = '<i class="fas fa-eye"></i> Xem đáp án mẫu';
+            } else {
+                answerDiv.classList.add('show');
+                btn.innerHTML = '<i class="fas fa-eye-slash"></i> Ẩn đáp án';
+            }
+        }
+
+        // --- 4. THUẬT TOÁN CHẤM ĐIỂM THÔNG MINH (KEYWORD MATCHING) ---
+        function gradeAnswer(index, sampleAnswer) {
+            const userInput = document.getElementById(`input-${index}`).value.trim();
+            const resultDiv = document.getElementById(`result-${index}`);
+            
+            if (!userInput) {
+                alert("Bạn chưa nhập câu trả lời!");
+                return;
+            }
+
+            // 1. Xử lý bài mẫu để lấy từ khóa (Bỏ từ nối common)
+            const stopWords = ["the", "is", "a", "an", "to", "and", "of", "in", "it", "so", "that", "my", "i", "do", "are"];
+            const cleanSample = sampleAnswer.toLowerCase().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g,"");
+            const sampleWords = cleanSample.split(/\s+/);
+            
+            // Lọc ra keywords (những từ > 2 ký tự và không nằm trong stopWords)
+            const keywords = new Set(sampleWords.filter(w => w.length > 2 && !stopWords.includes(w)));
+            
+            // 2. Xử lý bài làm của user
+            const cleanInput = userInput.toLowerCase().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g,"");
+            const inputWords = new Set(cleanInput.split(/\s+/));
+
+            // 3. So sánh
+            let matchCount = 0;
+            let missingWords = [];
+            
+            keywords.forEach(word => {
+                if (inputWords.has(word)) {
+                    matchCount++;
+                } else {
+                    missingWords.push(word);
+                }
+            });
+
+            // 4. Tính điểm
+            const totalKeywords = keywords.size;
+            const score = Math.round((matchCount / totalKeywords) * 100);
+            
+            // 5. Hiển thị kết quả
+            let feedback = "";
+            let color = "";
+            
+            if (score >= 80) {
+                feedback = "Tuyệt vời! Bạn đã nắm rất chắc các ý chính và từ vựng quan trọng. 🌟";
+                color = "#27ae60"; // Green
+                resultDiv.style.background = "#d4edda";
+                resultDiv.style.borderColor = "#c3e6cb";
+            } else if (score >= 50) {
+                feedback = "Khá tốt. Bạn đã có các ý chính, nhưng hãy cố gắng dùng thêm các từ vựng chuyên môn hơn nhé. 👍";
+                color = "#e67e22"; // Orange
+                resultDiv.style.background = "#fff3cd";
+                resultDiv.style.borderColor = "#ffeeba";
+            } else {
+                feedback = "Cần cố gắng hơn. Bài viết của bạn còn thiếu khá nhiều từ khóa quan trọng của bài mẫu. 💪";
+                color = "#c0392b"; // Red
+                resultDiv.style.background = "#f8d7da";
+                resultDiv.style.borderColor = "#f5c6cb";
+            }
+
+            // Chọn ra tối đa 5 từ khóa bị thiếu để gợi ý
+            const suggestedWords = missingWords.slice(0, 7).join(", ");
+
+            resultDiv.style.display = "block";
+            resultDiv.innerHTML = `
+                <div class="score-display" style="color: ${color}">Độ khớp từ khóa: ${score}%</div>
+                <div class="feedback-text">${feedback}</div>
+                ${suggestedWords ? `<div style="margin-top:10px; font-size:0.9rem;">
+                    <strong>💡 Gợi ý bổ sung các từ sau:</strong> 
+                    <span class="missing-keywords">${suggestedWords}</span>, ...
+                </div>` : ''}
+            `;
+        }
+
+        // --- 5. TIMER ---
+        let timeLeft = 1500; let timerId = null;
+        function startTimer() { if(!timerId) timerId = setInterval(() => { timeLeft > 0 ? (timeLeft--, updateTimer()) : clearInterval(timerId); }, 1000); }
+        function resetTimer() { clearInterval(timerId); timerId = null; timeLeft = 1500; updateTimer(); }
+        function updateTimer() { document.getElementById('timer').innerText = `${Math.floor(timeLeft/60).toString().padStart(2,'0')}:${(timeLeft%60).toString().padStart(2,'0')}`; }
+    </script>
+</body>
+</html>
